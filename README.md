@@ -56,11 +56,22 @@ This is the owner's original spec, kept as written. Items marked *(proposed)* ar
 - Company name
 - CEO name
 
+#### 2.2.1 CEO Archetypes (D-011)
+
+| Archetype | Effects | Attracts employees who… |
+|---|---|---|
+| **Research CEO** | Tech tree progress boost (**major**) | like research |
+| **Technical CEO** | Tech tree progress boost (**minor**); design and production speed boost (**major**) | like engineering/production |
+| **Business CEO** | Better contract chances; investor reputation boost; company reputation boost; better employee happiness | are MBAs (see Q-8) |
+| **Marketing CEO** | Better contract chances; better analyst reputation; higher product popularity **with mainstream consumers** | *not yet specified* (see Q-9) |
+
+The exact percentages for "major" and "minor" are set during balancing (see Q-10).
+
 ### 2.3 Dashboard
 - New Hardware (CPU)
 - Research
 - Employees/Recruiting
-- Foundry/Fab Contracts
+- Foundry/Fab Contracts. For now production is **rented** from third-party fabs only; owning a fab is out of scope (D-013).
 - Contracts
 - Products
 - Investors
@@ -75,8 +86,19 @@ This is the owner's original spec, kept as written. Items marked *(proposed)* ar
 - Thermal Management
 
 ### 2.5 Employees and Recruiting
-- **Stats**
-  - Engineering
+- **Stats** (D-012)
+
+  | Stat | Effect |
+  |---|---|
+  | Engineering | Jack of all trades: helps design, production and research |
+  | Design | Speeds up chip design time |
+  | Production | Better quality control (QC) and faster manufacturing |
+  | Research | Speeds up tech tree progress |
+  | Marketing | Makes chips more popular |
+  | Finance | Higher credit score; better profit margins on contracts |
+  | Business | Easier contract negotiation; better employee happiness |
+  | Charisma | Better employee happiness within that employee's branch (see Q-7) |
+
 - **Types of employees**
   - Researchers (R&D)
   - Engineers (jack of all trades)
@@ -111,6 +133,10 @@ This is the owner's original spec, kept as written. Items marked *(proposed)* ar
 - Companies offering contracts
   - Each contract has specific demands: power, thermal, speed, timeline, and price
 - Company reputation goes up or down with each contract you complete or fail
+
+### 2.10 Setting and Competition
+- **The game starts in 1975** (D-014). Starting technology, such as process nodes and clock speeds, should fit that era.
+- **Rival AI companies compete for market share** (D-015). Rival names and branding must be **fictional**, never real companies.
 
 ---
 
@@ -164,9 +190,10 @@ Why it is built this way:
 - The game is deterministic: same seed plus same player actions gives the same result, which helps debugging and bug reports.
 - Moving the game to Electron and Steam doesn't require touching game logic.
 
-### 4.2 Time model *(proposed, see D-007)*
+### 4.2 Time model (D-010)
 - **1 tick = 1 in-game week.**
-- Player speed controls: pause, 1×, 2×, 4×.
+- **Continuous simulation:** the clock runs on its own. The player never has to advance each week by hand.
+- Player speed controls: pause, 1×, 2×, 3×.
 - Research, chip development, fab production and contract deadlines are all measured in weeks.
 
 ### 4.3 Data flow
@@ -193,7 +220,7 @@ These rules apply from day one, even in the browser pilot, so moving to Steam is
 2. **Call achievement hooks from the start**, for example `unlock("first_cpu_shipped")`. In the pilot they are only logged.
 3. **`src/sim/` must stay platform-free.** No `window`, `document`, `localStorage` or React.
 4. **Every save carries a `saveVersion`.** Save format changes come with a migration in `src/save/`, so pilot saves can still load in the Steam version.
-5. **Desktop-first layout:** minimum 1280×720, keyboard shortcuts (Space = pause, 1–4 = speed), and a fullscreen toggle.
+5. **Desktop-first layout:** minimum 1280×720, keyboard shortcuts (Space = pause, 1–3 = speed), and a fullscreen toggle.
 6. **Pilot feedback:** an in-game "Send feedback" link, plus optional anonymous analytics such as progress reached and quit points, to tune the economy before the Steam launch.
 
 ---
@@ -253,9 +280,15 @@ Electron wrapper, steamworks.js (achievements, Steam Cloud), file-based saves, s
 | D-004 | 2026-11-23 | Owner | **Pilot is a browser game; the full game ships on Steam** | Easy to share and test the pilot, then a commercial release | Accepted |
 | D-005 | 2026-11-23 | Claude | Use **Electron + steamworks.js** for the Steam build (supersedes the earlier Tauri suggestion) | Mature Steam integration; Steam overlay works more reliably than in Tauri, which uses the system's built-in browser engine | Accepted |
 | D-006 | 2026-11-23 | Claude | **Keep the simulation (`src/sim/`) separate from the UI and platform** | Headless balance tests, deterministic replays, painless move to Steam | Accepted |
-| D-007 | 2026-11-23 | Claude | **1 tick = 1 in-game week**, with pause, 1×, 2× and 4× speed | Good granularity for research, production and contract deadlines | Proposed (owner to confirm) |
+| D-007 | 2026-11-23 | Claude | **1 tick = 1 in-game week**, with pause, 1×, 2× and 4× speed | Good granularity for research, production and contract deadlines | Superseded by D-010 |
 | D-008 | 2026-11-23 | Claude | **Platform adapters** for save storage and achievements, defined from day one | Switch from IndexedDB to files and Steam Cloud without changing game code | Accepted |
 | D-009 | 2026-11-23 | Claude | **Seeded random number generator** stored in the save | Reproducible games for debugging and bug reports | Accepted |
+| D-010 | 2026-11-23 | Owner | **1 tick = 1 in-game week, continuous simulation, speeds pause/1×/2×/3×.** Supersedes D-007. | Owner confirmed the weekly tick; time runs on its own instead of being advanced by hand; 3× is the top speed instead of 4× | Accepted |
+| D-011 | 2026-11-23 | Owner | **Four CEO archetypes: Research, Technical, Business, Marketing** (details in §2.2.1) | Owner's design; answers Q-1 | Accepted |
+| D-012 | 2026-11-23 | Owner | **Eight employee stats: Engineering, Design, Production, Research, Marketing, Finance, Business, Charisma** (details in §2.5) | Owner's design; answers Q-3 | Accepted |
+| D-013 | 2026-11-23 | Owner | **No player-owned fabs for now. All production is rented from third-party foundries.** | Keeps scope small; owning a fab may come later | Accepted |
+| D-014 | 2026-11-23 | Owner | **The game starts in 1975** | Answers Q-5 | Accepted |
+| D-015 | 2026-11-23 | Owner | **Rival AI companies compete for market share.** Their names must be fictional. | Answers Q-6. The fictional-names rule (Claude) avoids using real companies' trademarks | Accepted |
 
 ---
 
@@ -263,12 +296,16 @@ Electron wrapper, steamworks.js (achievements, Steam Cloud), file-based saves, s
 
 | # | Question | Raised by | Notes |
 |---|---|---|---|
-| Q-1 | What are the CEO archetypes and their bonuses? | Claude | Example ideas: "Engineer Founder" (cheaper research), "Wall Street CEO" (better investor goodwill). The owner can supply their own, or an agent can draft 4–5 for review. |
-| Q-2 | Confirm the time model (D-007: 1 tick = 1 week)? | Claude | |
-| Q-3 | Which employee stats exist besides Engineering? | Claude | The spec lists only "Engineering" so far. |
-| Q-4 | How do Foundry/Fab Contracts work? Do you rent capacity from third-party fabs, can you build your own fab later, or both? | Claude | Affects the economy model. |
-| Q-5 | Is there a starting year or historical era (e.g. 1970s → present), or is the timeline fictional? | Claude | Affects the starting process node and research pacing. |
-| Q-6 | Are there rival AI companies competing for market share? | Claude | Affects sales and the Analyst feature. |
+Q-1 to Q-6 were answered on 2026-11-23; see D-010 to D-015.
+
+| # | Question | Raised by | Notes |
+|---|---|---|---|
+| Q-7 | What is a "branch" for the Charisma stat? Is it the employee's department (R&D, Design, HR, …) or something else? | Claude | Decides whose happiness a charismatic employee improves. |
+| Q-8 | The Business CEO "attracts MBAs". Is MBA a new employee type, or a trait on existing types (e.g. Negotiators, Sales Experts with a high Business stat)? | Claude | MBA is not in the employee type list in §2.5. |
+| Q-9 | Which employees does the Marketing CEO attract? | Claude | The other three archetypes each attract a group; this one doesn't say. Suggestion: employees who like marketing (Sales Experts / high Marketing stat). |
+| Q-10 | How big are "major" and "minor" boosts? | Claude | Suggested starting point for balancing: major = +25%, minor = +10%. To be tuned with the headless balance tests. |
+| Q-11 | How many rival companies are there, and do new rivals appear over time? | Claude | Affects market simulation complexity. |
+| Q-12 | Does the 1975 timeline follow real-world technology history (e.g. process nodes shrinking on a realistic schedule) or a looser, game-paced version? | Claude | Affects research tree pacing. |
 
 ---
 
@@ -278,3 +315,4 @@ Electron wrapper, steamworks.js (achievements, Steam Cloud), file-based saves, s
 |---|---|---|
 | 2026-11-23 | Claude | Created README with the owner's game design spec, tech stack, architecture, Steam-readiness rules, UI/UX plan, roadmap, decision log, open questions and collaboration protocol. |
 | 2026-11-23 | Claude | Added `AGENTS.md`, which points every AI agent to this README and its collaboration protocol. |
+| 2026-11-23 | Claude | Recorded the owner's answers to Q-1 to Q-6 as D-010 to D-015. Added CEO archetypes (§2.2.1), employee stats (§2.5), the rented-fabs-only rule (§2.3) and Setting and Competition (§2.10). Updated the time model (§4.2) and speed shortcuts (§5). D-007 marked superseded. Added follow-up questions Q-7 to Q-12. |
