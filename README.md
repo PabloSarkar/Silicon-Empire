@@ -9,7 +9,7 @@ A hardware tycoon simulation game. You found a semiconductor company, design CPU
 
 ## Getting Started
 
-**Play the pilot online:** https://pablosarkar.github.io/Silicon-Empire/ (live once GitHub Pages is switched on; see [Deployment](#deployment)).
+**Play the pilot online:** https://pablosarkar.github.io/Silicon-Empire/ (see [Deployment](#deployment)).
 
 Requires Node.js 20 or newer.
 
@@ -38,7 +38,7 @@ The pilot is hosted on **GitHub Pages** (D-022) by the workflow `.github/workflo
 - **Every push** to any branch runs typecheck, tests and build. A failing check shows as a red ✗ on the commit.
 - **Pushes to the default branch** also deploy the built game to https://pablosarkar.github.io/Silicon-Empire/. The default branch is currently `claude/youthful-clarke-so4z10`; if it changes to `main`, the workflow follows automatically.
 - A deployment can also be started by hand: repository **Actions** tab → **Deploy to GitHub Pages** → **Run workflow**.
-- **One-time setup (owner):** repository **Settings → Pages → Build and deployment → Source: GitHub Actions**. Until this is set, the deploy job fails.
+- **One-time setup (done 2026-11-23):** repository **Settings → Pages → Build and deployment → Source** is set to **GitHub Actions**. If it is ever switched back to "Deploy from a branch", deploys fail with "Ensure GitHub Pages has been enabled".
 - Saves on the hosted version are stored in each player's own browser for the `pablosarkar.github.io` site. Players can move them with Export/Import.
 
 ---
@@ -398,3 +398,4 @@ Q-1 to Q-6 were answered on 2026-11-23; see D-010 to D-015.
 | 2026-11-23 | Claude | Recorded the owner's answers to Q-1 to Q-6 as D-010 to D-015. Added CEO archetypes (§2.2.1), employee stats (§2.5), the rented-fabs-only rule (§2.3) and Setting and Competition (§2.10). Updated the time model (§4.2) and speed shortcuts (§5). D-007 marked superseded. Added follow-up questions Q-7 to Q-12. |
 | 2026-11-23 | Claude | **Built Phase 1 (First Slice).** Project setup (Vite, React, TypeScript, Zustand, idb-keyval, Vitest); sim core (types, calendar, seeded RNG, new game, weekly tick); CEO archetype data; platform adapters (IndexedDB saves, localStorage settings, logged achievements, file download); versioned save format with validation; screens: Main Menu, New Game, Load Game (load/export/delete/import), Settings, Dashboard (top bar, sidebar, placeholders, event log); continuous clock with Space and 1–3 shortcuts; autosave; 17 unit tests. Added Getting Started, code map (§4.1.1), visual style rules (§6.2) and decisions D-016 to D-021. Tested in Chromium: new game → run at 3× → save → quit → load restores the same date, with no console errors. Added rules 8–11 to `AGENTS.md` (checks before commit, style rules, seeded RNG only, save migrations). |
 | 2026-11-23 | Claude | Added GitHub Pages hosting (D-022): `.github/workflows/deploy-pages.yml` checks every push and deploys the default branch. Added the play link and a Deployment section under Getting Started; updated the pilot hosting row in §3. Owner still needs to set Settings → Pages → Source to "GitHub Actions" once. |
+| 2026-11-23 | Owner, Claude | Owner set Pages source to GitHub Actions; Claude re-ran the deploy. The pilot is live at https://pablosarkar.github.io/Silicon-Empire/. README Deployment section updated to match. |
