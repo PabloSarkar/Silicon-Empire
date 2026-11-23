@@ -1,0 +1,429 @@
+/*
+  Silicon Empire: plain, utilitarian styling (D-016, D-017).
+  Rules: system fonts, flat colours, 1px borders, small radii, no gradients,
+  no shadows, no glow, no animation. Keep it looking like a classic
+  management sim / desktop application.
+*/
+
+:root {
+  --bg: #e9e9e6;
+  --panel: #fbfbf9;
+  --panel-alt: #f1f1ee;
+  --border: #b9b9b3;
+  --border-strong: #8a8a84;
+  --text: #1d1d1b;
+  --muted: #66665f;
+  --accent: #1f4e79;
+  --accent-text: #ffffff;
+  --accent-soft: #dce6ef;
+  --error: #9b1c1c;
+  --error-bg: #f8e6e3;
+
+  --font: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Consolas, "Liberation Mono", monospace;
+  --radius: 2px;
+
+  color-scheme: light;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font: 14px/1.45 var(--font);
+  min-width: 1280px; /* Desktop-first, README §5 rule 5. */
+}
+
+h1 {
+  font-size: 20px;
+  margin: 0 0 16px;
+}
+h2 {
+  font-size: 17px;
+  margin: 0 0 12px;
+}
+h3 {
+  font-size: 14px;
+  margin: 16px 0 6px;
+}
+
+ul,
+ol {
+  margin: 4px 0;
+  padding-left: 20px;
+}
+
+.muted {
+  color: var(--muted);
+}
+.hint {
+  color: var(--muted);
+  font-size: 12px;
+}
+.num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+.spacer {
+  flex: 1;
+}
+
+/* Controls ---------------------------------------------------------------- */
+
+button,
+input,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  background: var(--panel-alt);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  padding: 4px 12px;
+  cursor: pointer;
+}
+button:hover {
+  background: #e4e4df;
+}
+button:active {
+  background: #d6d6d0;
+}
+button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
+button.primary:hover {
+  background: #183e60;
+}
+button:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+input[type="text"],
+select {
+  background: #fff;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  padding: 4px 6px;
+}
+input[type="text"] {
+  width: 320px;
+}
+input[type="text"].short {
+  width: 64px;
+  text-transform: uppercase;
+}
+input[type="color"] {
+  width: 48px;
+  height: 26px;
+  padding: 1px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: #fff;
+}
+
+kbd {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  padding: 0 4px;
+  background: #fff;
+}
+
+.error {
+  color: var(--error);
+  font-size: 12px;
+  margin-top: 4px;
+}
+.error-box {
+  color: var(--error);
+  background: var(--error-bg);
+  border: 1px solid var(--error);
+  padding: 8px 10px;
+  margin-bottom: 12px;
+}
+
+/* Panels and forms -------------------------------------------------------- */
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+}
+
+.center-page {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.page {
+  padding: 32px;
+  display: flex;
+  justify-content: center;
+}
+
+.menu-panel {
+  width: 360px;
+  padding: 24px;
+}
+.game-title {
+  font-size: 26px;
+  margin-bottom: 4px;
+}
+.menu-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 20px;
+}
+.menu-buttons button {
+  padding: 8px;
+  text-align: left;
+}
+
+.form-page {
+  width: 760px;
+  padding: 20px 24px;
+}
+.form-page.wide {
+  width: 1000px;
+}
+
+fieldset {
+  border: 1px solid var(--border);
+  margin: 0 0 14px;
+  padding: 10px 14px 14px;
+}
+legend {
+  font-weight: 600;
+  padding: 0 4px;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: 170px 1fr;
+  gap: 8px 12px;
+  align-items: center;
+}
+
+.form-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+/* New Game ---------------------------------------------------------------- */
+
+.archetype-list {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.archetype {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  border: 1px solid var(--border);
+  padding: 8px 10px;
+  cursor: pointer;
+  background: #fff;
+}
+.archetype.selected {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.archetype input {
+  margin-top: 3px;
+}
+.archetype-body ul {
+  margin: 4px 0;
+}
+
+.logo-editor {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+}
+.logo-preview {
+  border: 1px solid var(--border);
+  background: #fff;
+  padding: 12px;
+  line-height: 0;
+}
+
+/* Tables ------------------------------------------------------------------ */
+
+.data-table {
+  border-collapse: collapse;
+  width: 100%;
+  background: #fff;
+}
+.data-table th,
+.data-table td {
+  border: 1px solid var(--border);
+  padding: 5px 8px;
+  text-align: left;
+  vertical-align: middle;
+}
+.data-table thead th {
+  background: var(--panel-alt);
+  font-weight: 600;
+}
+.data-table.compact th,
+.data-table.compact td {
+  padding: 3px 8px;
+}
+.data-table.key-value {
+  width: auto;
+  min-width: 380px;
+}
+.data-table.key-value th {
+  background: var(--panel-alt);
+  font-weight: 600;
+  width: 170px;
+}
+.row-actions {
+  white-space: nowrap;
+  width: 1%;
+}
+.row-actions button + button {
+  margin-left: 4px;
+}
+
+/* Dashboard --------------------------------------------------------------- */
+
+.dashboard {
+  height: 100%;
+  display: grid;
+  grid-template-columns: 220px 1fr 320px;
+  grid-template-rows: auto 1fr;
+  grid-template-areas:
+    "top top top"
+    "side main log";
+}
+
+.top-bar {
+  grid-area: top;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 6px 12px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border-strong);
+}
+.top-bar .company {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 200px;
+}
+.top-bar .stats {
+  display: flex;
+  gap: 24px;
+  margin: 0;
+}
+.top-bar dt {
+  font-size: 11px;
+  color: var(--muted);
+}
+.top-bar dd {
+  margin: 0;
+}
+.speed-controls {
+  display: flex;
+}
+.speed-controls button {
+  border-radius: 0;
+  margin-left: -1px;
+  min-width: 44px;
+}
+.speed-controls button:first-child {
+  margin-left: 0;
+  min-width: 72px;
+}
+.speed-controls button.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
+.game-menu {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.game-menu .status {
+  margin-right: 6px;
+}
+
+.sidebar {
+  grid-area: side;
+  display: flex;
+  flex-direction: column;
+  background: var(--panel-alt);
+  border-right: 1px solid var(--border);
+  padding: 8px 0;
+}
+.sidebar button {
+  border: none;
+  border-radius: 0;
+  background: none;
+  text-align: left;
+  padding: 7px 14px;
+}
+.sidebar button:hover {
+  background: #e2e2dd;
+}
+.sidebar button.active {
+  background: var(--accent);
+  color: var(--accent-text);
+}
+
+.main-panel {
+  grid-area: main;
+  padding: 16px 20px;
+  overflow: auto;
+}
+
+.event-log {
+  grid-area: log;
+  border-left: 1px solid var(--border);
+  background: var(--panel);
+  padding: 12px 14px;
+  overflow: auto;
+}
+.event-log h3 {
+  margin-top: 0;
+}
+.event-log ol {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.event-log li {
+  padding: 4px 0;
+  border-bottom: 1px solid var(--panel-alt);
+  font-size: 13px;
+}
+.event-log .num {
+  display: block;
+  font-size: 11px;
+}

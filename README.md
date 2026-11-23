@@ -5,12 +5,35 @@ A hardware tycoon simulation game. You found a semiconductor company, design CPU
 - **Pilot version:** browser game
 - **Full version:** desktop game on Steam
 
-> **Status:** Planning complete, no code written yet. The next step is the [First Slice](#7-roadmap).
+> **Status:** Phase 1 (First Slice) is built: main menu, New Game flow, dashboard shell with a running clock, settings, and save/load/export/import. Next is [Phase 2: Core loop](#7-roadmap).
+
+## Getting Started
+
+Requires Node.js 20 or newer.
+
+```bash
+npm install
+```
+
+```bash
+npm run dev        # start the game at http://localhost:5173
+```
+
+```bash
+npm test           # run unit tests (Vitest)
+```
+
+```bash
+npm run build      # typecheck + production build into dist/
+```
+
+`npm run typecheck` runs the TypeScript checker on its own. Run `npm run typecheck`, `npm test` and `npm run build` before every commit.
 
 ---
 
 ## Table of Contents
 
+0. [Getting Started](#getting-started)
 1. [Collaboration Protocol (read first)](#1-collaboration-protocol-read-first)
 2. [Game Design Specification](#2-game-design-specification)
 3. [Tech Stack](#3-tech-stack)
@@ -146,11 +169,11 @@ The exact percentages for "major" and "minor" are set during balancing (see Q-10
 |---|---|---|
 | Language | **TypeScript** | Type checking catches errors in game data, such as contract requirements and research nodes |
 | UI framework | **React**, built with **Vite** | Well suited to menu-, table- and chart-heavy tycoon interfaces |
-| Styling and components | **Tailwind CSS** + **shadcn/ui** (Radix) | Ready-made accessible sliders, dialogs, tabs and tooltips |
+| Styling and components | **Plain CSS** (`src/ui/styles.css`) and native HTML controls (D-016) | Plain, utilitarian look the owner asked for; no styling dependencies |
 | State (UI side) | **Zustand** | Lightweight store the UI reads simulation state from |
-| Research tree view | **React Flow** | Pan and zoom node graph |
-| Charts | **Recharts** | Share price, profit and sales history |
-| Tables | **TanStack Table** | Sortable and filterable Products list and employee roster |
+| Research tree view | **React Flow** *(planned, Phase 2)* | Pan and zoom node graph |
+| Charts | **Recharts** *(planned, Phase 3)* | Share price, profit and sales history |
+| Tables | **TanStack Table** *(planned, if plain tables become insufficient)* | Sortable and filterable Products list and employee roster |
 | Tests | **Vitest** | Unit tests, plus headless multi-year balance simulations |
 | Pilot hosting | **itch.io** (playtests); Netlify or GitHub Pages also fine | Free, easy to share |
 | Steam desktop wrapper | **Electron** + **steamworks.js** | Mature Steam integration (achievements, Steam Cloud, overlay) |
@@ -190,11 +213,39 @@ Why it is built this way:
 - The game is deterministic: same seed plus same player actions gives the same result, which helps debugging and bug reports.
 - Moving the game to Electron and Steam doesn't require touching game logic.
 
+### 4.1.1 Code map (as built in Phase 1)
+
+| File | Purpose |
+|---|---|
+| `src/main.tsx` | Entry point; mounts the React app |
+| `src/sim/types.ts` | `GameState` and related types. Any change here means bumping `SAVE_VERSION` (see `src/save/saveFile.ts`) |
+| `src/sim/game.ts` | `createNewGame`, `validateNewGame`, `tick` (one week), `addEvent`. All pure functions |
+| `src/sim/calendar.ts` | Week number ↔ calendar date (week 0 = 1 Jan 1975) |
+| `src/sim/rng.ts` | Seeded random number generator (mulberry32). Use it for all game randomness; never `Math.random` inside `src/sim/` |
+| `src/data/balance.ts` | Balance constants (starting cash, boost sizes). All placeholders until balancing |
+| `src/data/archetypes.ts` | The four CEO archetypes, their displayed effects and numeric modifiers |
+| `src/platform/types.ts` | Platform adapter interfaces: `SaveStorage`, `SettingsStorage`, `Achievements`, `FileExport` |
+| `src/platform/browser.ts` | Browser implementations (IndexedDB, localStorage, logged achievements, file download) |
+| `src/platform/index.ts` | Chooses the active platform. The Steam build will switch it here |
+| `src/save/saveFile.ts` | Save file format, `SAVE_VERSION`, migrations, structural validation |
+| `src/save/saveManager.ts` | Save slots: save, load, list, export, import |
+| `src/ui/store.ts` | Zustand store: current screen, game, pause/speed, settings, save actions |
+| `src/ui/useGameClock.ts` | Continuous clock and the Space / 1–3 keyboard shortcuts |
+| `src/ui/settings.ts` | Settings type, defaults and parsing |
+| `src/ui/screens/*.tsx` | `MainMenu`, `NewGame`, `LoadGame`, `Settings`, `Dashboard` |
+| `src/ui/components/LogoMark.tsx` | Renders a company logo as SVG |
+| `src/ui/styles.css` | All styling. Follow the rules at the top of the file |
+| `**/*.test.ts` | Vitest tests next to the code they test |
+
+**Save slots (D-018):** each playthrough has one manual slot (`manual-<gameId>`) and one autosave slot (`auto-<gameId>`). Importing a save file writes it to the manual slot of that playthrough.
+
 ### 4.2 Time model (D-010)
 - **1 tick = 1 in-game week.**
 - **Continuous simulation:** the clock runs on its own. The player never has to advance each week by hand.
 - Player speed controls: pause, 1×, 2×, 3×.
 - Research, chip development, fab production and contract deadlines are all measured in weeks.
+- At 1× speed one week takes 1 real second (`MS_PER_WEEK_AT_1X` in `src/ui/store.ts`, placeholder, D-019). 2× and 3× divide that by the speed.
+- The game starts paused, pauses while the Settings screen is open, and (by default) pauses when the browser tab is hidden.
 
 ### 4.3 Data flow
 ```
@@ -233,8 +284,16 @@ These rules apply from day one, even in the browser pilot, so moving to Steam is
 - **Main panel:** the active screen
 - **Notifications:** pop-up alerts plus a scrollable event log (e.g. "Contract deadline in 2 weeks", "Research complete: 14nm")
 
-### 6.2 Visual style
-A dark "silicon lab" look: near-black backgrounds, green or cyan accents inspired by circuit traces, and monospaced numbers so values line up in tables.
+### 6.2 Visual style (D-017)
+Plain and utilitarian, like a classic management sim or desktop application. The owner asked for a barebones look, not a "vibecoded" one.
+
+- Light grey background, off-white panels, one muted blue accent (`#1f4e79`)
+- System fonts; monospaced, tabular numbers for dates and money
+- 1px borders, 2px corner radius, native form controls
+- **Not allowed:** gradients, drop shadows, glow, glassmorphism, emoji icons, decorative animation, neon colours
+- All colours are CSS variables at the top of `src/ui/styles.css`. Add new ones there instead of hard-coding colours in components.
+
+This replaces the earlier dark "silicon lab" proposal, which was never approved.
 
 ### 6.3 Screens that need the most UX work
 1. **New Hardware (CPU) designer.** This is the core of the game. Sliders for clock speed, core count, process node and voltage, with a live preview of the trade-offs (speed ↑ → power ↑ → heat ↑), estimated cost per unit, and which open contracts the design would meet.
@@ -249,14 +308,16 @@ A dark "silicon lab" look: near-black backgrounds, green or cyan accents inspire
 ### Phase 0: Planning ✅
 Tech stack, architecture and UI direction agreed (see Decision Log).
 
-### Phase 1: First Slice (next)
-1. Vite + React + TypeScript + Tailwind project with the `sim/`, `data/`, `ui/`, `platform/` and `save/` folders
+### Phase 1: First Slice ✅
+1. Vite + React + TypeScript project with the `sim/`, `data/`, `ui/`, `platform/` and `save/` folders
 2. Main Menu: New Game, Load Game, Settings
-3. New Game flow: CEO Archetype, Logo, Company name, CEO name
-4. Empty Dashboard shell with the top bar (cash, date, speed controls) and the sidebar
-5. Save and load through the browser storage adapter, plus export and import of save files
+3. New Game flow: CEO Archetype, Logo (shape, two colours, font, 1–3 characters), Company name, CEO name
+4. Dashboard shell: top bar (company, date, cash, share price and goodwill placeholders, pause/1×/2×/3×, Save, Settings, Main Menu), sidebar with Overview plus the eight sections (placeholders listing planned contents), event log
+5. Save and load through the browser storage adapter, autosave, plus export and import of save files
+6. Settings: autosave interval, pause when tab hidden, fullscreen toggle, keyboard shortcut list
+7. 17 unit tests (calendar, RNG, new game, tick, save format, save slots, IndexedDB adapter, settings)
 
-### Phase 2: Core loop
+### Phase 2: Core loop (next)
 CPU designer → fab production → sales → Products screen; Research tree; Employees.
 
 ### Phase 3: Business layer
@@ -275,7 +336,7 @@ Electron wrapper, steamworks.js (achievements, Steam Cloud), file-based saves, s
 | ID | Date | Author | Decision | Reasoning | Status |
 |---|---|---|---|---|---|
 | D-001 | 2026-11-23 | Claude | Use **TypeScript** as the language | The game is UI-heavy (menus, tables, charts), which is web technology's strength; type checking protects game data | Accepted |
-| D-002 | 2026-11-23 | Claude | Use **React + Vite** for the UI, with **Tailwind + shadcn/ui** | Fast development of a dashboard-style interface | Accepted |
+| D-002 | 2026-11-23 | Claude | Use **React + Vite** for the UI, with **Tailwind + shadcn/ui** | Fast development of a dashboard-style interface | React + Vite: Accepted. Tailwind + shadcn/ui: superseded by D-016 |
 | D-003 | 2026-11-23 | Claude | **No database server.** Saves are versioned JSON; content lives in typed data files | Single-player game; a database adds complexity with no benefit | Accepted |
 | D-004 | 2026-11-23 | Owner | **Pilot is a browser game; the full game ships on Steam** | Easy to share and test the pilot, then a commercial release | Accepted |
 | D-005 | 2026-11-23 | Claude | Use **Electron + steamworks.js** for the Steam build (supersedes the earlier Tauri suggestion) | Mature Steam integration; Steam overlay works more reliably than in Tauri, which uses the system's built-in browser engine | Accepted |
@@ -289,6 +350,12 @@ Electron wrapper, steamworks.js (achievements, Steam Cloud), file-based saves, s
 | D-013 | 2026-11-23 | Owner | **No player-owned fabs for now. All production is rented from third-party foundries.** | Keeps scope small; owning a fab may come later | Accepted |
 | D-014 | 2026-11-23 | Owner | **The game starts in 1975** | Answers Q-5 | Accepted |
 | D-015 | 2026-11-23 | Owner | **Rival AI companies compete for market share.** Their names must be fictional. | Answers Q-6. The fictional-names rule (Claude) avoids using real companies' trademarks | Accepted |
+| D-016 | 2026-11-23 | Claude | **Plain CSS and native HTML controls instead of Tailwind + shadcn/ui.** Supersedes the styling part of D-002. | Owner asked for a barebones, non-"vibecoded" UI. Component libraries push towards a generic modern-web look and add dependencies | Accepted (follows owner request) |
+| D-017 | 2026-11-23 | Owner | **Barebones, utilitarian visual style** (rules in §6.2) | Owner request when starting Phase 1 | Accepted |
+| D-018 | 2026-11-23 | Claude | **One manual and one autosave slot per playthrough** (`manual-<id>`, `auto-<id>`); export/import as JSON files | Simple to understand; autosave never overwrites a manual save | Proposed (owner to confirm) |
+| D-019 | 2026-11-23 | Claude | **1 week = 1 real second at 1×** (placeholder) | A year passes in under a minute at 1×; will be tuned once there is gameplay to pace | Proposed (owner to confirm) |
+| D-020 | 2026-11-23 | Claude | **Placeholder balance values:** starting cash $250,000; major boost +25%; minor boost +10%; unspecified archetype boosts ("better contract chances", etc.) use the minor value | Needed to build against; all live in `src/data/balance.ts` | Proposed (to be tuned) |
+| D-021 | 2026-11-23 | Claude | **Minimum layout width 1280px** | Desktop-first (README §5 rule 5); the game is not designed for phones | Accepted |
 
 ---
 
@@ -316,3 +383,4 @@ Q-1 to Q-6 were answered on 2026-11-23; see D-010 to D-015.
 | 2026-11-23 | Claude | Created README with the owner's game design spec, tech stack, architecture, Steam-readiness rules, UI/UX plan, roadmap, decision log, open questions and collaboration protocol. |
 | 2026-11-23 | Claude | Added `AGENTS.md`, which points every AI agent to this README and its collaboration protocol. |
 | 2026-11-23 | Claude | Recorded the owner's answers to Q-1 to Q-6 as D-010 to D-015. Added CEO archetypes (§2.2.1), employee stats (§2.5), the rented-fabs-only rule (§2.3) and Setting and Competition (§2.10). Updated the time model (§4.2) and speed shortcuts (§5). D-007 marked superseded. Added follow-up questions Q-7 to Q-12. |
+| 2026-11-23 | Claude | **Built Phase 1 (First Slice).** Project setup (Vite, React, TypeScript, Zustand, idb-keyval, Vitest); sim core (types, calendar, seeded RNG, new game, weekly tick); CEO archetype data; platform adapters (IndexedDB saves, localStorage settings, logged achievements, file download); versioned save format with validation; screens: Main Menu, New Game, Load Game (load/export/delete/import), Settings, Dashboard (top bar, sidebar, placeholders, event log); continuous clock with Space and 1–3 shortcuts; autosave; 17 unit tests. Added Getting Started, code map (§4.1.1), visual style rules (§6.2) and decisions D-016 to D-021. Tested in Chromium: new game → run at 3× → save → quit → load restores the same date, with no console errors. Added rules 8–11 to `AGENTS.md` (checks before commit, style rules, seeded RNG only, save migrations). |

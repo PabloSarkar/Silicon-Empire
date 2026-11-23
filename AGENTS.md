@@ -13,3 +13,7 @@ This project is developed by several AI agents (Claude Code and an external Chat
 5. Changes to the game design or tech stack need the owner's approval before they are marked `Accepted`.
 6. Keep `src/sim/` free of UI and browser code (see README sections 4 and 5).
 7. Work on feature branches, never directly on `main`. Commit README updates together with the code they describe.
+8. Before committing code, run `npm run typecheck`, `npm test` and `npm run build`. All three must pass.
+9. Follow the visual style rules in README §6.2 and at the top of `src/ui/styles.css`: plain and utilitarian, no gradients, shadows, glow or emoji icons.
+10. Use the seeded RNG in `src/sim/rng.ts` for all game randomness. Never call `Math.random` or `Date.now` inside `src/sim/`.
+11. If you change `GameState`, bump `SAVE_VERSION` and add a migration in `src/save/saveFile.ts` (see the comment at the top of that file).
