@@ -9,6 +9,8 @@ A hardware tycoon simulation game. You found a semiconductor company, design CPU
 
 ## Getting Started
 
+**Play the pilot online:** https://pablosarkar.github.io/Silicon-Empire/ (live once GitHub Pages is switched on; see [Deployment](#deployment)).
+
 Requires Node.js 20 or newer.
 
 ```bash
@@ -28,6 +30,16 @@ npm run build      # typecheck + production build into dist/
 ```
 
 `npm run typecheck` runs the TypeScript checker on its own. Run `npm run typecheck`, `npm test` and `npm run build` before every commit.
+
+### Deployment
+
+The pilot is hosted on **GitHub Pages** (D-022) by the workflow `.github/workflows/deploy-pages.yml`:
+
+- **Every push** to any branch runs typecheck, tests and build. A failing check shows as a red ✗ on the commit.
+- **Pushes to the default branch** also deploy the built game to https://pablosarkar.github.io/Silicon-Empire/. The default branch is currently `claude/youthful-clarke-so4z10`; if it changes to `main`, the workflow follows automatically.
+- A deployment can also be started by hand: repository **Actions** tab → **Deploy to GitHub Pages** → **Run workflow**.
+- **One-time setup (owner):** repository **Settings → Pages → Build and deployment → Source: GitHub Actions**. Until this is set, the deploy job fails.
+- Saves on the hosted version are stored in each player's own browser for the `pablosarkar.github.io` site. Players can move them with Export/Import.
 
 ---
 
@@ -175,7 +187,7 @@ The exact percentages for "major" and "minor" are set during balancing (see Q-10
 | Charts | **Recharts** *(planned, Phase 3)* | Share price, profit and sales history |
 | Tables | **TanStack Table** *(planned, if plain tables become insufficient)* | Sortable and filterable Products list and employee roster |
 | Tests | **Vitest** | Unit tests, plus headless multi-year balance simulations |
-| Pilot hosting | **itch.io** (playtests); Netlify or GitHub Pages also fine | Free, easy to share |
+| Pilot hosting | **GitHub Pages** now (D-022); **itch.io** later for public playtests | Free; deploys automatically on every push to the default branch |
 | Steam desktop wrapper | **Electron** + **steamworks.js** | Mature Steam integration (achievements, Steam Cloud, overlay) |
 
 **Database: none.** This is a single-player game, so it doesn't need a database server.
@@ -356,6 +368,7 @@ Electron wrapper, steamworks.js (achievements, Steam Cloud), file-based saves, s
 | D-019 | 2026-11-23 | Claude | **1 week = 1 real second at 1×** (placeholder) | A year passes in under a minute at 1×; will be tuned once there is gameplay to pace | Proposed (owner to confirm) |
 | D-020 | 2026-11-23 | Claude | **Placeholder balance values:** starting cash $250,000; major boost +25%; minor boost +10%; unspecified archetype boosts ("better contract chances", etc.) use the minor value | Needed to build against; all live in `src/data/balance.ts` | Proposed (to be tuned) |
 | D-021 | 2026-11-23 | Claude | **Minimum layout width 1280px** | Desktop-first (README §5 rule 5); the game is not designed for phones | Accepted |
+| D-022 | 2026-11-23 | Owner | **Host the pilot on GitHub Pages**, deployed by GitHub Actions from the default branch. Every push also runs typecheck, tests and build. | Owner request. Free hosting for a public repo; automatic deploys keep the hosted build current. itch.io remains the plan for wider playtests | Accepted |
 
 ---
 
@@ -384,3 +397,4 @@ Q-1 to Q-6 were answered on 2026-11-23; see D-010 to D-015.
 | 2026-11-23 | Claude | Added `AGENTS.md`, which points every AI agent to this README and its collaboration protocol. |
 | 2026-11-23 | Claude | Recorded the owner's answers to Q-1 to Q-6 as D-010 to D-015. Added CEO archetypes (§2.2.1), employee stats (§2.5), the rented-fabs-only rule (§2.3) and Setting and Competition (§2.10). Updated the time model (§4.2) and speed shortcuts (§5). D-007 marked superseded. Added follow-up questions Q-7 to Q-12. |
 | 2026-11-23 | Claude | **Built Phase 1 (First Slice).** Project setup (Vite, React, TypeScript, Zustand, idb-keyval, Vitest); sim core (types, calendar, seeded RNG, new game, weekly tick); CEO archetype data; platform adapters (IndexedDB saves, localStorage settings, logged achievements, file download); versioned save format with validation; screens: Main Menu, New Game, Load Game (load/export/delete/import), Settings, Dashboard (top bar, sidebar, placeholders, event log); continuous clock with Space and 1–3 shortcuts; autosave; 17 unit tests. Added Getting Started, code map (§4.1.1), visual style rules (§6.2) and decisions D-016 to D-021. Tested in Chromium: new game → run at 3× → save → quit → load restores the same date, with no console errors. Added rules 8–11 to `AGENTS.md` (checks before commit, style rules, seeded RNG only, save migrations). |
+| 2026-11-23 | Claude | Added GitHub Pages hosting (D-022): `.github/workflows/deploy-pages.yml` checks every push and deploys the default branch. Added the play link and a Deployment section under Getting Started; updated the pilot hosting row in §3. Owner still needs to set Settings → Pages → Source to "GitHub Actions" once. |
