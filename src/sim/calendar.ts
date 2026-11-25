@@ -28,3 +28,8 @@ export function formatDate(week: number): string {
   const { year, month, day } = weekToDate(week);
   return `${day} ${MONTHS[month - 1]} ${year}`;
 }
+
+/** Calendar year of a week, e.g. 1975. */
+export function calendarYear(week: number): number {
+  return weekToDate(week).year;
+}

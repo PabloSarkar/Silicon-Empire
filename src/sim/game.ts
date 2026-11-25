@@ -1,10 +1,30 @@
-// Creating a new game and advancing time. All functions are pure: they take
-// a state and return a new one without mutating the input.
+// Creating a new game and advancing time.
 
-import { MAX_EVENTS, STARTING_CASH } from "../data/balance";
-import { formatDate, weekToDate } from "./calendar";
+import {
+  BASE_TAX_RATE,
+  CANDIDATE_REFRESH_WEEKS,
+  FIRST_YEAR_EXPECTATION,
+  FOUNDER_SHARE_FRACTION,
+  OFFICE_BASE_WEEKLY,
+  OFFICE_PER_EMPLOYEE_WEEKLY,
+  STARTING_CASH,
+  STARTING_CREDIT_SCORE,
+  STARTING_GOODWILL,
+  STARTING_REPUTATION,
+  TOTAL_SHARES,
+} from "../data/balance";
+import { wageIndex } from "../data/market";
+import { STARTING_RESEARCH } from "../data/research";
+import { calendarYear, formatDate } from "./calendar";
+import { updateContracts } from "./contracts";
+import { refreshCandidates, teamOutput, updateHappiness, weeklySalaries, yearlyGrowth } from "./employees";
+import { addEvent, unlockAchievement } from "./events";
+import { chargeExpense, closeWeek, computeSharePrice, earn, emptyLedger, weeklyBank, yearEnd } from "./finance";
+import { driftReputation, initRivals, runMarketWeek, updateRivals } from "./market";
+import { deliverFabOrders } from "./production";
+import { progressDesign, progressResearch } from "./research";
 import { seedToState } from "./rng";
-import type { CeoArchetypeId, GameEvent, GameState, Logo } from "./types";
+import type { CeoArchetypeId, GameState, Logo } from "./types";
 
 export const NAME_MAX_LENGTH = 32;
 export const LOGO_TEXT_MAX_LENGTH = 3;
@@ -52,19 +72,63 @@ export function initialsFor(name: string): string {
 }
 
 /**
+ * Fills in every system of a game (employees, research, market, money).
+ * Used for new games and to upgrade version-1 saves.
+ */
+export function initSystems(
+  base: Pick<GameState, "id" | "seed" | "rngState" | "week" | "company" | "ceo" | "events">,
+): GameState {
+  const s: GameState = {
+    ...base,
+    company: { ...base.company, reputation: STARTING_REPUTATION },
+    nextId: 1,
+    employees: [],
+    candidates: [],
+    nextCandidatesWeek: base.week + CANDIDATE_REFRESH_WEEKS,
+    research: { completed: [...STARTING_RESEARCH], progress: {}, current: null },
+    products: [],
+    fabOrders: [],
+    rivals: [],
+    rivalProducts: [],
+    contracts: [],
+    nextContractWeek: base.week + 3,
+    clientRelations: {},
+    investors: {
+      goodwill: STARTING_GOODWILL,
+      expectation: FIRST_YEAR_EXPECTATION,
+      founderShares: Math.round(TOTAL_SHARES * FOUNDER_SHARE_FRACTION),
+      investorShares: Math.round(TOTAL_SHARES * (1 - FOUNDER_SHARE_FRACTION)),
+      lastIssueYear: null,
+    },
+    bank: { creditScore: STARTING_CREDIT_SCORE, loans: [], negativeCashWeeks: 0 },
+    ledger: emptyLedger(),
+    lastLedger: null,
+    weekNet: 0,
+    weeklyProfits: [],
+    sharePrice: 0,
+    history: [],
+    years: [],
+    achievements: [],
+    gameOver: null,
+  };
+  refreshCandidates(s);
+  initRivals(s);
+  s.sharePrice = computeSharePrice(s);
+  s.history.push({ week: s.week, cash: s.company.cash, sharePrice: s.sharePrice });
+  return s;
+}
+
+/**
  * Creates a new game. `id` and `seed` are passed in rather than generated
  * here so the sim stays deterministic and free of platform APIs.
  */
-export function createNewGame(
-  params: NewGameParams,
-  options: { id: string; seed: number },
-): GameState {
+export function createNewGame(params: NewGameParams, options: { id: string; seed: number }): GameState {
   const errors = validateNewGame(params);
   if (Object.keys(errors).length > 0) {
     throw new Error(`Invalid new game parameters: ${Object.values(errors).join(" ")}`);
   }
   const companyName = params.companyName.trim();
-  return {
+  const s = initSystems({
     id: options.id,
     seed: options.seed,
     rngState: seedToState(options.seed),
@@ -73,29 +137,62 @@ export function createNewGame(
       name: companyName,
       logo: { ...params.logo, text: params.logo.text.trim().toUpperCase() },
       cash: STARTING_CASH,
+      reputation: STARTING_REPUTATION,
     },
     ceo: { name: params.ceoName.trim(), archetype: params.archetype },
     events: [{ week: 0, message: `${companyName} is founded on ${formatDate(0)}.` }],
-  };
+  });
+  unlockAchievement(s, "company_founded");
+  return s;
 }
 
-export function addEvent(state: GameState, message: string): GameState {
-  const event: GameEvent = { week: state.week, message };
-  const events = [...state.events, event].slice(-MAX_EVENTS);
-  return { ...state, events };
-}
-
-/** Advances the game by one week. */
+/** Advances the game by one week. Returns a new state; the input is not changed. */
 export function tick(state: GameState): GameState {
-  let next: GameState = { ...state, week: state.week + 1 };
+  if (state.gameOver) return state;
+  const s = structuredClone(state);
+  const prevYear = calendarYear(s.week);
+  s.week += 1;
 
-  const prevYear = weekToDate(state.week).year;
-  const year = weekToDate(next.week).year;
+  const year = calendarYear(s.week);
   if (year !== prevYear) {
-    next = addEvent(next, `The year ${year} begins.`);
+    // Close the books on the old year before this week's money moves.
+    yearEnd(s, prevYear, teamOutput(s, BASE_TAX_RATE).taxRate);
+    yearlyGrowth(s);
+    addEvent(s, `The year ${year} begins.`);
+    if (s.gameOver) return s;
   }
 
-  // Later phases add research, production, sales, contracts, investors
-  // and bank updates here.
-  return next;
+  const out = teamOutput(s, BASE_TAX_RATE);
+  updateHappiness(s, out.hrHappiness);
+  progressResearch(s, out.researchPerWeek);
+  progressDesign(s, out.designPerWeek);
+  deliverFabOrders(s);
+  updateRivals(s);
+
+  const sales = runMarketWeek(s, out.marketing, out.retailCut);
+  driftReputation(s, sales.playerShare);
+  if (sales.revenue > 0) {
+    earn(s, "salesRevenue", sales.revenue);
+    unlockAchievement(s, "first_cpu_shipped");
+  }
+
+  updateContracts(s);
+
+  chargeExpense(s, "salaries", weeklySalaries(s));
+  chargeExpense(
+    s,
+    "office",
+    Math.round((OFFICE_BASE_WEEKLY + OFFICE_PER_EMPLOYEE_WEEKLY * s.employees.length) * wageIndex(s.week)),
+  );
+  weeklyBank(s, out.creditDrift);
+
+  if (s.week >= s.nextCandidatesWeek) {
+    refreshCandidates(s);
+    s.nextCandidatesWeek = s.week + CANDIDATE_REFRESH_WEEKS;
+  }
+
+  closeWeek(s);
+  return s;
 }
+
+export { addEvent };

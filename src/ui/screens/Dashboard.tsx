@@ -1,13 +1,22 @@
 import { useState } from "react";
-import { getArchetype } from "../../data/archetypes";
 import { formatDate } from "../../sim/calendar";
 import type { GameState } from "../../sim/types";
 import { LogoMark } from "../components/LogoMark";
-import { formatMoney } from "../format";
+import { formatMoney, formatMoneyCents } from "../format";
 import { useStore, type Speed } from "../store";
 import { useClockShortcuts, useGameClock } from "../useGameClock";
+import { Bank } from "./game/Bank";
+import { Contracts } from "./game/Contracts";
+import { Designer } from "./game/Designer";
+import { Employees } from "./game/Employees";
+import { Foundry } from "./game/Foundry";
+import { Investors } from "./game/Investors";
+import { Market } from "./game/Market";
+import { Overview } from "./game/Overview";
+import { Products } from "./game/Products";
+import { Research } from "./game/Research";
 
-type SectionId =
+export type SectionId =
   | "overview"
   | "newHardware"
   | "research"
@@ -15,101 +24,109 @@ type SectionId =
   | "foundry"
   | "contracts"
   | "products"
+  | "market"
   | "investors"
   | "bank";
 
-interface Section {
-  id: SectionId;
-  label: string;
-  /** Roadmap phase in which the section gets built (README §7). */
-  phase?: number;
-  /** Planned contents, from the spec (README §2). */
-  planned?: string[];
-}
-
-// Sidebar order follows the Dashboard spec (README §2.3).
-const SECTIONS: Section[] = [
+// Sidebar order follows the Dashboard spec (README §2.3); Overview and
+// Market are additions (D-027).
+const SECTIONS: { id: SectionId; label: string }[] = [
   { id: "overview", label: "Overview" },
-  {
-    id: "newHardware",
-    label: "New Hardware (CPU)",
-    phase: 2,
-    planned: ["CPU designer: clock speed, cores, process node, voltage", "Live power, thermal and cost preview"],
-  },
-  {
-    id: "research",
-    label: "Research",
-    phase: 2,
-    planned: ["Process Nodes", "Instruction Sets (Architecture)", "Socket and Standards", "Clock Speeds", "Power Management", "Thermal Management"],
-  },
-  {
-    id: "employees",
-    label: "Employees / Recruiting",
-    phase: 2,
-    planned: ["Hire Researchers, Engineers, Designers, HR, Negotiators, Sales Experts, Tax Specialists", "Stats: Engineering, Design, Production, Research, Marketing, Finance, Business, Charisma"],
-  },
-  {
-    id: "foundry",
-    label: "Foundry / Fab Contracts",
-    phase: 2,
-    planned: ["Rent production capacity from third-party fabs (D-013)"],
-  },
-  {
-    id: "contracts",
-    label: "Contracts",
-    phase: 3,
-    planned: ["Offers with power, thermal, speed, timeline and price demands", "Reputation for completing or failing contracts"],
-  },
-  {
-    id: "products",
-    label: "Products",
-    phase: 2,
-    planned: ["All previous hardware", "Number sold and profit", "Analyst reviews", "Chip spec inspection"],
-  },
-  {
-    id: "investors",
-    label: "Investors",
-    phase: 3,
-    planned: ["Board with a yearly profit expectation", "Reward for beating it; goodwill loss for missing it"],
-  },
-  {
-    id: "bank",
-    label: "Bank",
-    phase: 3,
-    planned: ["Loans", "Finances: profit, share price, shareholders", "Credit score"],
-  },
+  { id: "newHardware", label: "New Hardware (CPU)" },
+  { id: "research", label: "Research" },
+  { id: "employees", label: "Employees / Recruiting" },
+  { id: "foundry", label: "Foundry / Fab Contracts" },
+  { id: "contracts", label: "Contracts" },
+  { id: "products", label: "Products" },
+  { id: "market", label: "Market" },
+  { id: "investors", label: "Investors" },
+  { id: "bank", label: "Bank" },
 ];
 
 const SPEEDS: Speed[] = [1, 2, 3];
+
+/** Short count shown next to a sidebar item when something needs attention. */
+function sectionBadge(game: GameState, id: SectionId): string | null {
+  if (id === "contracts") {
+    const open = game.contracts.filter((c) => c.status === "open").length;
+    const active = game.contracts.filter((c) => c.status === "active").length;
+    if (open + active === 0) return null;
+    return active > 0 ? `${open} new, ${active} to deliver` : `${open} new`;
+  }
+  if (id === "products") {
+    const soldOut = game.products.filter((p) => p.status === "onSale" && p.inventory === 0).length;
+    return soldOut > 0 ? `${soldOut} sold out` : null;
+  }
+  if (id === "research" && !game.research.current) return "idle";
+  if (id === "newHardware" && game.products.some((p) => p.status === "ready")) return "ready";
+  return null;
+}
 
 export function Dashboard() {
   useGameClock();
   useClockShortcuts();
 
   const game = useStore((s) => s.game);
+  const actionError = useStore((s) => s.actionError);
+  const clearActionError = useStore((s) => s.clearActionError);
   const [active, setActive] = useState<SectionId>("overview");
+  const [foundryProduct, setFoundryProduct] = useState<string | undefined>(undefined);
   if (!game) return null;
 
   const section = SECTIONS.find((s) => s.id === active)!;
+
+  function navigate(id: SectionId) {
+    clearActionError();
+    if (id !== "foundry") setFoundryProduct(undefined);
+    setActive(id);
+  }
+
+  function orderFor(productId: string) {
+    clearActionError();
+    setFoundryProduct(productId);
+    setActive("foundry");
+  }
 
   return (
     <div className="dashboard">
       <TopBar game={game} />
       <nav className="sidebar" aria-label="Dashboard sections">
-        {SECTIONS.map((s) => (
-          <button
-            key={s.id}
-            className={s.id === active ? "active" : ""}
-            aria-current={s.id === active ? "page" : undefined}
-            onClick={() => setActive(s.id)}
-          >
-            {s.label}
-          </button>
-        ))}
+        {SECTIONS.map((s) => {
+          const badge = sectionBadge(game, s.id);
+          return (
+            <button
+              key={s.id}
+              className={s.id === active ? "active" : ""}
+              aria-current={s.id === active ? "page" : undefined}
+              onClick={() => navigate(s.id)}
+            >
+              {s.label}
+              {badge && <span className="badge">{badge}</span>}
+            </button>
+          );
+        })}
       </nav>
       <main className="main-panel">
+        {game.gameOver && <GameOverPanel game={game} />}
         <h2>{section.label}</h2>
-        {active === "overview" ? <Overview game={game} /> : <Placeholder section={section} />}
+        {actionError && (
+          <div className="error-box action-error" role="alert">
+            {actionError}{" "}
+            <button className="link" onClick={clearActionError}>
+              Dismiss
+            </button>
+          </div>
+        )}
+        {active === "overview" && <Overview onNavigate={navigate} />}
+        {active === "newHardware" && <Designer />}
+        {active === "research" && <Research />}
+        {active === "employees" && <Employees />}
+        {active === "foundry" && <Foundry key={foundryProduct ?? "none"} initialProductId={foundryProduct} />}
+        {active === "contracts" && <Contracts />}
+        {active === "products" && <Products onOrder={orderFor} />}
+        {active === "market" && <Market />}
+        {active === "investors" && <Investors />}
+        {active === "bank" && <Bank />}
       </main>
       <EventLog game={game} />
     </div>
@@ -124,7 +141,7 @@ function TopBar({ game }: { game: GameState }) {
   const { setSpeed, togglePause, saveNow, openSettings, quitToMenu } = useStore.getState();
 
   function onQuit() {
-    const unsaved = lastSavedWeek !== game.week;
+    const unsaved = lastSavedWeek !== game.week && !game.gameOver;
     if (unsaved && !window.confirm("Quit to the main menu? Progress since your last save will be lost.")) {
       return;
     }
@@ -144,19 +161,23 @@ function TopBar({ game }: { game: GameState }) {
         </div>
         <div>
           <dt>Cash</dt>
-          <dd className="num">{formatMoney(game.company.cash)}</dd>
+          <dd className={`num ${game.company.cash < 0 ? "bad" : ""}`}>{formatMoney(game.company.cash)}</dd>
         </div>
-        <div title="Available once the Bank is built (Phase 3)">
+        <div>
           <dt>Share price</dt>
-          <dd className="num muted">n/a</dd>
+          <dd className="num">{formatMoneyCents(game.sharePrice)}</dd>
         </div>
-        <div title="Available once Investors are built (Phase 3)">
+        <div>
           <dt>Investor goodwill</dt>
-          <dd className="num muted">n/a</dd>
+          <dd className={`num ${game.investors.goodwill < 25 ? "bad" : ""}`}>{Math.round(game.investors.goodwill)}</dd>
+        </div>
+        <div>
+          <dt>Reputation</dt>
+          <dd className="num">{Math.round(game.company.reputation)}</dd>
         </div>
       </dl>
       <div className="speed-controls" role="group" aria-label="Game speed">
-        <button className={paused ? "active" : ""} onClick={togglePause} title="Space">
+        <button className={paused ? "active" : ""} onClick={togglePause} title="Space" disabled={Boolean(game.gameOver)}>
           {paused ? "Paused" : "Pause"}
         </button>
         {SPEEDS.map((s) => (
@@ -165,6 +186,7 @@ function TopBar({ game }: { game: GameState }) {
             className={!paused && speed === s ? "active" : ""}
             onClick={() => setSpeed(s)}
             title={`Key ${s}`}
+            disabled={Boolean(game.gameOver)}
           >
             {s}×
           </button>
@@ -172,7 +194,9 @@ function TopBar({ game }: { game: GameState }) {
       </div>
       <div className="game-menu">
         {status && <span className="muted status">{status}</span>}
-        <button onClick={() => void saveNow()}>Save</button>
+        <button onClick={() => void saveNow()} disabled={Boolean(game.gameOver)}>
+          Save
+        </button>
         <button onClick={openSettings}>Settings</button>
         <button onClick={onQuit}>Main Menu</button>
       </div>
@@ -180,75 +204,32 @@ function TopBar({ game }: { game: GameState }) {
   );
 }
 
-function Overview({ game }: { game: GameState }) {
-  const archetype = getArchetype(game.ceo.archetype);
+function GameOverPanel({ game }: { game: GameState }) {
+  const quitToMenu = useStore((s) => s.quitToMenu);
+  const best = game.years.reduce((m, y) => Math.max(m, y.netProfit), 0);
   return (
-    <div className="overview">
-      <table className="data-table compact key-value">
-        <tbody>
-          <tr>
-            <th>Company</th>
-            <td>{game.company.name}</td>
-          </tr>
-          <tr>
-            <th>CEO</th>
-            <td>{game.ceo.name}</td>
-          </tr>
-          <tr>
-            <th>CEO archetype</th>
-            <td>{archetype.name}</td>
-          </tr>
-          <tr>
-            <th>Founded</th>
-            <td className="num">{formatDate(0)}</td>
-          </tr>
-          <tr>
-            <th>Weeks in business</th>
-            <td className="num">{game.week}</td>
-          </tr>
-          <tr>
-            <th>Cash</th>
-            <td className="num">{formatMoney(game.company.cash)}</td>
-          </tr>
-        </tbody>
-      </table>
-      <h3>CEO effects</h3>
-      <ul>
-        {archetype.effects.map((e) => (
-          <li key={e}>{e}</li>
-        ))}
-      </ul>
-      <p className="muted">Attracts: {archetype.attracts}</p>
-    </div>
-  );
-}
-
-function Placeholder({ section }: { section: Section }) {
-  return (
-    <div>
-      <p className="muted">Not built yet. Planned for Phase {section.phase} (see README §7).</p>
-      {section.planned && (
-        <>
-          <h3>Planned</h3>
-          <ul>
-            {section.planned.map((p) => (
-              <li key={p}>{p}</li>
-            ))}
-          </ul>
-        </>
-      )}
+    <div className="game-over">
+      <h2>Game over</h2>
+      <p>{game.gameOver!.reason}</p>
+      <p>
+        {game.company.name} lasted until {formatDate(game.gameOver!.week)}, released {game.products.filter((p) => p.launchedWeek !== null).length}{" "}
+        chips, and its best year made {formatMoney(best)} in net profit.
+      </p>
+      <button className="primary" onClick={quitToMenu}>
+        Back to main menu
+      </button>
     </div>
   );
 }
 
 function EventLog({ game }: { game: GameState }) {
-  const recent = game.events.slice(-50).reverse();
+  const recent = game.events.slice(-60).reverse();
   return (
     <aside className="event-log" aria-label="Event log">
       <h3>Event log</h3>
       <ol>
         {recent.map((e, i) => (
-          <li key={`${e.week}-${i}`}>
+          <li key={`${e.week}-${i}`} className={e.important ? "important" : ""}>
             <span className="num muted">{formatDate(e.week)}</span> {e.message}
           </li>
         ))}

@@ -7,11 +7,14 @@ export interface Settings {
   autosaveWeeks: AutosaveInterval;
   /** Pause the clock automatically when the browser tab is hidden. */
   pauseWhenHidden: boolean;
+  /** Pause the clock when an important event happens (design done, contract won, …). */
+  pauseOnImportant: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
   autosaveWeeks: 4,
   pauseWhenHidden: true,
+  pauseOnImportant: true,
 };
 
 export const AUTOSAVE_OPTIONS: { value: AutosaveInterval; label: string }[] = [
@@ -30,5 +33,6 @@ export function parseSettings(raw: unknown): Settings {
     s.autosaveWeeks = r.autosaveWeeks as AutosaveInterval;
   }
   if (typeof r.pauseWhenHidden === "boolean") s.pauseWhenHidden = r.pauseWhenHidden;
+  if (typeof r.pauseOnImportant === "boolean") s.pauseOnImportant = r.pauseOnImportant;
   return s;
 }

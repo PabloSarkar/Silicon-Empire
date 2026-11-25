@@ -5,7 +5,7 @@ A hardware tycoon simulation game. You found a semiconductor company, design CPU
 - **Pilot version:** browser game
 - **Full version:** desktop game on Steam
 
-> **Status:** Phase 1 (First Slice) is built: main menu, New Game flow, dashboard shell with a running clock, settings, and save/load/export/import. Next is [Phase 2: Core loop](#7-roadmap).
+> **Status:** The **pilot is playable** (Phases 2 and 3 built together, D-024): design CPUs, research, hire, rent foundry production, launch and sell against rival companies, win contracts, and keep the board and the bank happy from 1975 onwards. Balance is a first pass. Next is [Phase 4: Pilot release](#7-roadmap). Gameplay rules as built: [§2.11](#211-pilot-gameplay-as-built).
 
 ## Getting Started
 
@@ -173,6 +173,31 @@ The exact percentages for "major" and "minor" are set during balancing (see Q-10
 - **The game starts in 1975** (D-014). Starting technology, such as process nodes and clock speeds, should fit that era.
 - **Rival AI companies compete for market share** (D-015). Rival names and branding must be **fictional**, never real companies.
 
+### 2.11 Pilot gameplay (as built)
+
+The pilot is a genre game in the spirit of hardware tycoon games; all names, data and content are original (D-023). This section describes the rules the code implements. Numbers live in `src/data/` and are first-pass balance values (D-031).
+
+**The loop:** research technology → design a CPU → rent production at a foundry → launch it at a price → it sells against rival chips → profit funds more staff and research → the board reviews you each year.
+
+| System | How it works | Code |
+|---|---|---|
+| Time | 1 week per tick (D-010); the year closes on the first week of January: tax, board review, new target. | `sim/game.ts` |
+| Research | Six categories, each a chain of tiers (§2.4). A tier needs the previous tier and its **year** to have arrived (D-025). Pay cash when you first start a tier; research points come from staff every week. Progress is kept if you switch. 86 tiers from 1975 to 2023. | `data/research.ts`, `sim/research.ts` |
+| CPU design | Pick process, architecture (data width), researched features, socket, cores and clock. The model gives transistors, die area, performance (MIPS), power, temperature, yield, unit cost, design work and mask cost. Power must fit the socket; above 85 °C a chip is "hot", above 95 °C "unstable" (big sales and review penalty). One design in development at a time (D-033). | `sim/cpu.ts`, `ui/screens/game/Designer.tsx` |
+| Foundries | Three fictional foundries, each with a price multiplier, defect rate, lead time, minimum order, and a lag before it offers new processes (D-013: no owned fabs). Production quality from staff lowers defects and lead time. | `data/market.ts`, `sim/production.ts` |
+| Market | Weekly demand grows over time. Buyers are split into Budget, Mainstream and Enthusiast segments that weigh price and performance differently; every chip on sale (yours and rivals') competes, and some buyers don't buy at all. Brand strength comes from reputation, the analyst review, marketing staff, and the Marketing CEO's mainstream bonus. Retailers keep a cut that Sales Experts reduce. | `sim/market.ts` |
+| Rivals | Three fictional rivals (D-030) release chips every 40–80 weeks using the technology available to them (0–2 years behind the frontier), aimed at their segments. | `sim/market.ts` |
+| Analysts | Each launch gets a 0–10 review based on performance vs. the best rival, value for money, heat and power. Good reviews raise reputation; bad ones lower it. | `sim/market.ts` |
+| Reputation | 0–100. Drifts toward a level set by your market share; contracts and reviews move it up or down. | `sim/market.ts`, `sim/contracts.ts` |
+| Employees | Seven roles and eight stats (§2.5). Candidates refresh every 4 weeks; the CEO's archetype attracts certain roles (D-026). Staff produce research and design points, production quality, marketing, negotiation, contract margins, a lower retailer cut, a lower tax rate and credit score drift. Happiness affects productivity; very unhappy staff may quit. The CEO also works. | `data/employees.ts`, `sim/employees.ts` |
+| Contracts | Fictional clients offer orders with minimum performance, maximum power, maximum temperature, deadline and price. Bid (win chance from reputation, negotiation and relationship), then deliver from stock before the deadline. Missing it costs a penalty, reputation and relationship. | `data/market.ts`, `sim/contracts.ts` |
+| Investors | Each year the board sets a net profit target (year one allows a loss). Beating it pays a cash bonus and raises goodwill; missing it lowers goodwill. Goodwill 0 = game over (D-032). You can sell new shares once a year (dilutes your stake). | `sim/finance.ts` |
+| Bank | Loans of 1, 2, 5 or 10 years; interest rate from credit score and term. Taking a loan lowers the credit score, more for longer loans. Paying on time raises it. 12 weeks of negative cash = bankruptcy (D-032). | `sim/finance.ts` |
+| Share price | Company value (cash − debt + 8× trailing profit + a reputation term) ÷ shares. | `sim/finance.ts` |
+| Achievements | The sim records ids (e.g. `first_cpu_shipped`, `first_contract`, `millionaire`); the UI forwards them to the platform adapter (README §5 rule 2). | `sim/events.ts`, `ui/store.ts` |
+
+**Playing it (for testers):** Overview has a "Getting started" checklist. Hire a few staff, start research, design a chip under New Hardware, order production under Foundry / Fab Contracts, then launch it under Products. The game pauses itself on important events (Settings). Space pauses, 1–3 set the speed.
+
 ---
 
 ## 3. Tech Stack
@@ -183,8 +208,8 @@ The exact percentages for "major" and "minor" are set during balancing (see Q-10
 | UI framework | **React**, built with **Vite** | Well suited to menu-, table- and chart-heavy tycoon interfaces |
 | Styling and components | **Plain CSS** (`src/ui/styles.css`) and native HTML controls (D-016) | Plain, utilitarian look the owner asked for; no styling dependencies |
 | State (UI side) | **Zustand** | Lightweight store the UI reads simulation state from |
-| Research tree view | **React Flow** *(planned, Phase 2)* | Pan and zoom node graph |
-| Charts | **Recharts** *(planned, Phase 3)* | Share price, profit and sales history |
+| Research tree view | Tabbed tables per category (D-028); React Flow not needed because every category is a linear chain | Simpler, matches the plain style |
+| Charts | Small hand-written SVG line chart (D-029) instead of Recharts | Only two simple charts needed; no dependency |
 | Tables | **TanStack Table** *(planned, if plain tables become insufficient)* | Sortable and filterable Products list and employee roster |
 | Tests | **Vitest** | Unit tests, plus headless multi-year balance simulations |
 | Pilot hosting | **GitHub Pages** now (D-022); **itch.io** later for public playtests | Free; deploys automatically on every push to the default branch |
@@ -225,16 +250,31 @@ Why it is built this way:
 - The game is deterministic: same seed plus same player actions gives the same result, which helps debugging and bug reports.
 - Moving the game to Electron and Steam doesn't require touching game logic.
 
-### 4.1.1 Code map (as built in Phase 1)
+### 4.1.1 Code map
 
 | File | Purpose |
 |---|---|
 | `src/main.tsx` | Entry point; mounts the React app |
 | `src/sim/types.ts` | `GameState` and related types. Any change here means bumping `SAVE_VERSION` (see `src/save/saveFile.ts`) |
-| `src/sim/game.ts` | `createNewGame`, `validateNewGame`, `tick` (one week), `addEvent`. All pure functions |
+| `src/sim/game.ts` | `createNewGame`, `initSystems`, `tick` (one week; the order of systems each week is in this function) |
+| `src/sim/actions.ts` | Every player action (`startResearch`, `startDesign`, `orderProduction`, `launchProduct`, `hireCandidate`, `bidContract`, `deliverContract`, `takeLoan`, `issueShares`, …). Each returns a new state or throws `ActionError` with a message for the player |
+| `src/sim/cpu.ts` | Chip model: `evaluateDesign`, `validateSpec`, `bestDesign`, `referenceDesign` (what rivals and clients use) |
+| `src/sim/research.ts` | Research status, research and design progress |
+| `src/sim/employees.ts` | Candidates, team output (`teamOutput`), happiness, salaries |
+| `src/sim/market.ts` | Rivals, weekly sales by segment, analyst reviews, reputation drift, market share |
+| `src/sim/production.ts` | Foundry quotes and deliveries |
+| `src/sim/contracts.ts` | Contract offers, bids, deadlines, reputation and client relations |
+| `src/sim/finance.ts` | Ledger, loans, credit score, share price, investors, year-end review |
+| `src/sim/events.ts` | Event log and achievement helpers |
+| `src/sim/random.ts` | Random helpers on the seeded RNG; ids |
 | `src/sim/calendar.ts` | Week number ↔ calendar date (week 0 = 1 Jan 1975) |
 | `src/sim/rng.ts` | Seeded random number generator (mulberry32). Use it for all game randomness; never `Math.random` inside `src/sim/` |
-| `src/data/balance.ts` | Balance constants (starting cash, boost sizes). All placeholders until balancing |
+| `src/sim/bot.ts` | Automatic player used only by balance tests |
+| `src/sim/testUtils.ts` | Shared test helpers |
+| `src/data/balance.ts` | Balance constants (starting cash, temperatures, tax, bank, investors…). First-pass values |
+| `src/data/research.ts` | The research tree: every tier, its year and its effect; research and mask costs |
+| `src/data/market.ts` | Market size, segments, rivals, foundries, contract clients (all fictional) |
+| `src/data/employees.ts` | Roles, stats, who each CEO attracts, CEO stats, name lists |
 | `src/data/archetypes.ts` | The four CEO archetypes, their displayed effects and numeric modifiers |
 | `src/platform/types.ts` | Platform adapter interfaces: `SaveStorage`, `SettingsStorage`, `Achievements`, `FileExport` |
 | `src/platform/browser.ts` | Browser implementations (IndexedDB, localStorage, logged achievements, file download) |
@@ -244,10 +284,12 @@ Why it is built this way:
 | `src/ui/store.ts` | Zustand store: current screen, game, pause/speed, settings, save actions |
 | `src/ui/useGameClock.ts` | Continuous clock and the Space / 1–3 keyboard shortcuts |
 | `src/ui/settings.ts` | Settings type, defaults and parsing |
-| `src/ui/screens/*.tsx` | `MainMenu`, `NewGame`, `LoadGame`, `Settings`, `Dashboard` |
+| `src/ui/screens/*.tsx` | `MainMenu`, `NewGame`, `LoadGame`, `Settings`, `Dashboard` (top bar, sidebar with badges, event log, game over) |
+| `src/ui/screens/game/*.tsx` | One file per dashboard section: `Overview`, `Designer`, `Research`, `Employees`, `Foundry`, `Contracts`, `Products`, `Market`, `Investors`, `Bank` |
 | `src/ui/components/LogoMark.tsx` | Renders a company logo as SVG |
+| `src/ui/components/Widgets.tsx` | Progress bar, key/value table, Meets/Fails marker, SVG line chart, section, board target |
 | `src/ui/styles.css` | All styling. Follow the rules at the top of the file |
-| `**/*.test.ts` | Vitest tests next to the code they test |
+| `**/*.test.ts` | Vitest tests next to the code they test. `src/sim/balance.test.ts` runs a bot for 25 years per CEO type; run it after changing balance numbers |
 
 **Save slots (D-018):** each playthrough has one manual slot (`manual-<gameId>`) and one autosave slot (`auto-<gameId>`). Importing a save file writes it to the manual slot of that playthrough.
 
@@ -257,14 +299,15 @@ Why it is built this way:
 - Player speed controls: pause, 1×, 2×, 3×.
 - Research, chip development, fab production and contract deadlines are all measured in weeks.
 - At 1× speed one week takes 1 real second (`MS_PER_WEEK_AT_1X` in `src/ui/store.ts`, placeholder, D-019). 2× and 3× divide that by the speed.
-- The game starts paused, pauses while the Settings screen is open, and (by default) pauses when the browser tab is hidden.
+- The game starts paused, pauses while the Settings screen is open, and (by default) pauses when the browser tab is hidden and when an important event happens (D-035).
 
 ### 4.3 Data flow
 ```
-Player action (UI) → sim.dispatch(action) → sim updates GameState
-Clock tick         → sim.tick()           → sim updates GameState
-GameState change   → Zustand store         → React re-renders
+Player action (UI) → store.dispatch(g => action(g, …)) → new GameState (or ActionError shown above the panel)
+Clock tick         → store.advanceWeek() → sim tick() → new GameState
+GameState change   → Zustand store → React re-renders
 ```
+`tick` and every action copy the state (`structuredClone`) and never mutate their input, so the same seed and the same actions always give the same game.
 
 ---
 
@@ -292,7 +335,7 @@ These rules apply from day one, even in the browser pilot, so moving to Steam is
 
 ### 6.1 Layout
 - **Top bar (always visible):** cash, date, share price, investor goodwill, speed controls
-- **Left sidebar:** the eight Dashboard sections as navigation
+- **Left sidebar:** Overview, the eight Dashboard sections, and Market (D-027), with short badges when something needs attention (e.g. "2 new" contracts, "1 sold out", research "idle")
 - **Main panel:** the active screen
 - **Notifications:** pop-up alerts plus a scrollable event log (e.g. "Contract deadline in 2 weeks", "Research complete: 14nm")
 
@@ -329,14 +372,14 @@ Tech stack, architecture and UI direction agreed (see Decision Log).
 6. Settings: autosave interval, pause when tab hidden, fullscreen toggle, keyboard shortcut list
 7. 17 unit tests (calendar, RNG, new game, tick, save format, save slots, IndexedDB adapter, settings)
 
-### Phase 2: Core loop (next)
-CPU designer → fab production → sales → Products screen; Research tree; Employees.
+### Phase 2: Core loop ✅ (pilot)
+CPU designer → foundry production → sales → Products screen; Research tree; Employees; Market and rivals.
 
-### Phase 3: Business layer
-Contracts and reputation, Investors and goodwill, Bank (loans, credit score, share price).
+### Phase 3: Business layer ✅ (pilot)
+Contracts and reputation, Investors and goodwill, Bank (loans, credit score, share price), game over.
 
-### Phase 4: Pilot release
-Balance pass, feedback link, itch.io release.
+### Phase 4: Pilot release (next)
+Owner and tester playtesting, balance pass (D-031), "Send feedback" link (README §5 rule 6), answers to the provisional decisions, itch.io release.
 
 ### Phase 5: Steam
 Electron wrapper, steamworks.js (achievements, Steam Cloud), file-based saves, store page.
@@ -369,23 +412,36 @@ Electron wrapper, steamworks.js (achievements, Steam Cloud), file-based saves, s
 | D-020 | 2026-11-23 | Claude | **Placeholder balance values:** starting cash $250,000; major boost +25%; minor boost +10%; unspecified archetype boosts ("better contract chances", etc.) use the minor value | Needed to build against; all live in `src/data/balance.ts` | Proposed (to be tuned) |
 | D-021 | 2026-11-23 | Claude | **Minimum layout width 1280px** | Desktop-first (README §5 rule 5); the game is not designed for phones | Accepted |
 | D-022 | 2026-11-23 | Owner | **Host the pilot on GitHub Pages**, deployed by GitHub Actions from the default branch. Every push also runs typecheck, tests and build. | Owner request. Free hosting for a public repo; automatic deploys keep the hosted build current. itch.io remains the plan for wider playtests | Accepted |
+| D-023 | 2026-11-25 | Owner | **Build a playable pilot**, a genre game "slightly similar" to existing hardware tycoon games. All names, data and content are original. | Owner request. Genre mechanics are fine; copying another game's specific content is not | Accepted |
+| D-024 | 2026-11-25 | Claude | **Pilot covers Phases 2 and 3 in one build** (core loop plus business layer) | A pilot needs the whole loop, including investors and bank, to be playable | Accepted (follows owner request) |
+| D-025 | 2026-11-25 | Claude | **Q-12: game-paced history.** Tiers unlock by year, loosely following the real industry (e.g. 10 µm in 1975, 7 nm in 2019). Research can't run ahead of a tier's year; numbers are game values, not real measurements | Gives the 1975 start a sense of history while keeping research meaningful | Proposed (owner to confirm) |
+| D-026 | 2026-11-25 | Claude | **Q-7/Q-8/Q-9 interpretations:** a Charisma "branch" is the employee's role; "MBAs" are Negotiators, Sales Experts, Tax Specialists and HR; the Marketing CEO attracts Sales Experts. Attracted roles appear 3× as often with +10 main stats | Needed to build recruiting; easy to change in `src/data/employees.ts` | Proposed (owner to confirm) |
+| D-027 | 2026-11-25 | Claude | **Added "Overview" and "Market" sidebar sections** beside the eight from the spec | Overview holds the getting-started checklist and summary; Market shows rivals and market share (D-015) | Proposed (owner to confirm) |
+| D-028 | 2026-11-25 | Claude | **Research tree shown as tabbed tables**, not a React Flow graph. Supersedes the React Flow row of §3 | Every category is a linear chain, so a graph adds nothing; fits the plain style (D-017) | Proposed (owner to confirm) |
+| D-029 | 2026-11-25 | Claude | **Hand-written SVG line chart** instead of Recharts | Only cash and share price charts are needed; no extra dependency | Proposed (owner to confirm) |
+| D-030 | 2026-11-25 | Claude | **Q-11: three fixed rivals** (Varex Microsystems, Orinth Semiconductor, Calder Logic) with different tech lag, prices and segments; no new entrants in the pilot | Enough competition to make pricing and timing matter | Proposed (owner to confirm) |
+| D-031 | 2026-11-25 | Claude | **First-pass economy** (market size and growth, segment prices, costs, board target growth, reputation drift). Checked with a bot that plays 25+ years per CEO type: all survive into the 2000s; a passive strategy starts missing board targets after 2000 | Starting point for playtesting; all values in `src/data/` | Proposed (to be tuned) |
+| D-032 | 2026-11-25 | Claude | **Game over:** investor goodwill reaches 0 (CEO replaced) or cash stays negative for 12 weeks (bankrupt). No win condition in the pilot; play continues indefinitely | Matches the investor and bank rules in §2.7 and §2.8 | Proposed (owner to confirm) |
+| D-033 | 2026-11-25 | Claude | **One chip in development at a time** | Keeps the pilot simple; a larger company could run parallel design teams later | Proposed (owner to confirm) |
+| D-034 | 2026-11-25 | Claude | **Save version 2** with a migration from version 1: Phase 1 saves load into the pilot, keeping company, CEO, cash, date and log | AGENTS.md rule 11 | Accepted |
+| D-035 | 2026-11-25 | Claude | **"Pause on important events" setting, on by default** (design finished, delivery, launch, contract won/failed, sold out, year-end review) | With a continuous clock, players shouldn't miss key moments | Proposed (owner to confirm) |
 
 ---
 
 ## 9. Open Questions
 
-| # | Question | Raised by | Notes |
-|---|---|---|---|
-Q-1 to Q-6 were answered on 2026-11-23; see D-010 to D-015.
+Q-1 to Q-6 were answered on 2026-11-23; see D-010 to D-015. Q-7 to Q-12 have **provisional answers** built into the pilot (marked Proposed in the Decision Log); the owner should confirm or change them.
 
 | # | Question | Raised by | Notes |
 |---|---|---|---|
-| Q-7 | What is a "branch" for the Charisma stat? Is it the employee's department (R&D, Design, HR, …) or something else? | Claude | Decides whose happiness a charismatic employee improves. |
-| Q-8 | The Business CEO "attracts MBAs". Is MBA a new employee type, or a trait on existing types (e.g. Negotiators, Sales Experts with a high Business stat)? | Claude | MBA is not in the employee type list in §2.5. |
-| Q-9 | Which employees does the Marketing CEO attract? | Claude | The other three archetypes each attract a group; this one doesn't say. Suggestion: employees who like marketing (Sales Experts / high Marketing stat). |
-| Q-10 | How big are "major" and "minor" boosts? | Claude | Suggested starting point for balancing: major = +25%, minor = +10%. To be tuned with the headless balance tests. |
-| Q-11 | How many rival companies are there, and do new rivals appear over time? | Claude | Affects market simulation complexity. |
-| Q-12 | Does the 1975 timeline follow real-world technology history (e.g. process nodes shrinking on a realistic schedule) or a looser, game-paced version? | Claude | Affects research tree pacing. |
+| Q-7 | What is a "branch" for the Charisma stat? Is it the employee's department (R&D, Design, HR, …) or something else? | Claude | Provisional: the employee's role (D-026). |
+| Q-8 | The Business CEO "attracts MBAs". Is MBA a new employee type, or a trait on existing types? | Claude | Provisional: business-side roles (D-026). |
+| Q-9 | Which employees does the Marketing CEO attract? | Claude | Provisional: Sales Experts (D-026). |
+| Q-10 | How big are "major" and "minor" boosts? | Claude | Provisional: +25% / +10% (D-020). |
+| Q-11 | How many rival companies are there, and do new rivals appear over time? | Claude | Provisional: three fixed rivals (D-030). |
+| Q-12 | Does the 1975 timeline follow real-world technology history or a looser, game-paced version? | Claude | Provisional: game-paced, gated by year (D-025). |
+| Q-13 | Is the difficulty right? A competent player is comfortably profitable early; pressure comes mainly from the board's rising targets after ~1990. | Claude | Needs owner playtesting. |
+| Q-14 | Is there a win condition or end year (e.g. 2030), or does the game run forever? | Claude | Pilot: no end (D-032). |
 
 ---
 
@@ -399,3 +455,4 @@ Q-1 to Q-6 were answered on 2026-11-23; see D-010 to D-015.
 | 2026-11-23 | Claude | **Built Phase 1 (First Slice).** Project setup (Vite, React, TypeScript, Zustand, idb-keyval, Vitest); sim core (types, calendar, seeded RNG, new game, weekly tick); CEO archetype data; platform adapters (IndexedDB saves, localStorage settings, logged achievements, file download); versioned save format with validation; screens: Main Menu, New Game, Load Game (load/export/delete/import), Settings, Dashboard (top bar, sidebar, placeholders, event log); continuous clock with Space and 1–3 shortcuts; autosave; 17 unit tests. Added Getting Started, code map (§4.1.1), visual style rules (§6.2) and decisions D-016 to D-021. Tested in Chromium: new game → run at 3× → save → quit → load restores the same date, with no console errors. Added rules 8–11 to `AGENTS.md` (checks before commit, style rules, seeded RNG only, save migrations). |
 | 2026-11-23 | Claude | Added GitHub Pages hosting (D-022): `.github/workflows/deploy-pages.yml` checks every push and deploys the default branch. Added the play link and a Deployment section under Getting Started; updated the pilot hosting row in §3. Owner still needs to set Settings → Pages → Source to "GitHub Actions" once. |
 | 2026-11-23 | Owner, Claude | Owner set Pages source to GitHub Actions; Claude re-ran the deploy. The pilot is live at https://pablosarkar.github.io/Silicon-Empire/. README Deployment section updated to match. |
+| 2026-11-25 | Claude | **Built the playable pilot (Phases 2 and 3).** New sim systems: chip model, research tree (86 tiers, 1975–2023), employees and recruiting, foundries, market with three segments and three rivals, analyst reviews, reputation, contracts, investors and board reviews, bank loans and credit score, share price, achievements, game over. New screens for all dashboard sections plus Overview (getting-started checklist) and Market; sidebar badges; pause on important events. Save version 2 with v1 migration. 36 tests including 25-year bot runs per CEO type. Played through in Chromium: hire, design, produce, launch, sell, bid, loan, save/load and the first year-end review, with no console errors. Added §2.11 (gameplay as built), updated code map, data flow, roadmap, D-023 to D-035, provisional answers to Q-7–Q-12 and new questions Q-13–Q-14. Removed a duplicated table header in §9. |

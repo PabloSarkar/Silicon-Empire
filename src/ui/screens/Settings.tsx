@@ -34,6 +34,14 @@ export function Settings() {
               ))}
             </select>
 
+            <label htmlFor="pause-important">Pause on important events</label>
+            <input
+              id="pause-important"
+              type="checkbox"
+              checked={settings.pauseOnImportant}
+              onChange={(e) => updateSettings({ pauseOnImportant: e.target.checked })}
+            />
+
             <label htmlFor="pause-hidden">Pause when tab is hidden</label>
             <input
               id="pause-hidden"

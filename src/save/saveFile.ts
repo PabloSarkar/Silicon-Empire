@@ -7,9 +7,10 @@
 //   3. Update isGameState() and add a test with an old save.
 // Never edit an existing migration once it has shipped.
 
+import { initSystems } from "../sim/game";
 import type { GameState } from "../sim/types";
 
-export const SAVE_VERSION = 1;
+export const SAVE_VERSION = 2;
 
 export interface SaveFile {
   saveVersion: number;
@@ -21,7 +22,27 @@ export interface SaveFile {
 export class SaveError extends Error {}
 
 /** MIGRATIONS[n] upgrades the `game` object of a version-n save to version n+1. */
-const MIGRATIONS: Record<number, (game: unknown) => unknown> = {};
+const MIGRATIONS: Record<number, (game: unknown) => unknown> = {
+  // v1 (Phase 1 shell) → v2 (pilot): add every game system with starting
+  // values. The company keeps its name, logo, cash, CEO, date and event log.
+  1: (game) => {
+    if (!isV1Game(game)) throw new SaveError("This save file is damaged or incomplete.");
+    return initSystems(game);
+  },
+};
+
+function isV1Game(v: unknown): v is Pick<GameState, "id" | "seed" | "rngState" | "week" | "company" | "ceo" | "events"> {
+  return (
+    isRecord(v) &&
+    typeof v.id === "string" &&
+    typeof v.seed === "number" &&
+    typeof v.rngState === "number" &&
+    typeof v.week === "number" &&
+    isRecord(v.company) &&
+    isRecord(v.ceo) &&
+    Array.isArray(v.events)
+  );
+}
 
 export function serialize(game: GameState, savedAt: Date): string {
   const file: SaveFile = { saveVersion: SAVE_VERSION, savedAt: savedAt.toISOString(), game };
@@ -86,7 +107,12 @@ export function isGameState(v: unknown): v is GameState {
   )
     return false;
 
-  if (!isRecord(company) || typeof company.name !== "string" || typeof company.cash !== "number")
+  if (
+    !isRecord(company) ||
+    typeof company.name !== "string" ||
+    typeof company.cash !== "number" ||
+    typeof company.reputation !== "number"
+  )
     return false;
   const logo = company.logo;
   if (
@@ -100,6 +126,31 @@ export function isGameState(v: unknown): v is GameState {
     return false;
 
   if (!isRecord(ceo) || typeof ceo.name !== "string" || !ARCHETYPE_IDS.includes(ceo.archetype as string))
+    return false;
+
+  // Version-2 systems: check the containers exist with the right shapes.
+  const arrays = [
+    "employees", "candidates", "products", "fabOrders", "rivals", "rivalProducts",
+    "contracts", "weeklyProfits", "history", "years", "achievements",
+  ];
+  if (!arrays.every((k) => Array.isArray(v[k]))) return false;
+  const records = ["research", "investors", "bank", "ledger", "clientRelations"];
+  if (!records.every((k) => isRecord(v[k]))) return false;
+  const research = v.research as Record<string, unknown>;
+  if (!Array.isArray(research.completed) || !isRecord(research.progress)) return false;
+  const bank = v.bank as Record<string, unknown>;
+  if (typeof bank.creditScore !== "number" || !Array.isArray(bank.loans)) return false;
+  const investors = v.investors as Record<string, unknown>;
+  if (typeof investors.goodwill !== "number" || typeof investors.expectation !== "number") return false;
+  if (
+    typeof v.nextId !== "number" ||
+    typeof v.sharePrice !== "number" ||
+    typeof v.weekNet !== "number" ||
+    typeof v.nextCandidatesWeek !== "number" ||
+    typeof v.nextContractWeek !== "number" ||
+    !("gameOver" in v) ||
+    !("lastLedger" in v)
+  )
     return false;
 
   if (!Array.isArray(events)) return false;

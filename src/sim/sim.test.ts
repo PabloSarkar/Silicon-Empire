@@ -1,15 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { STARTING_CASH } from "../data/balance";
+import { RIVALS } from "../data/market";
+import { STARTING_RESEARCH } from "../data/research";
 import { formatDate, weekToDate } from "./calendar";
-import { createNewGame, initialsFor, tick, validateNewGame, type NewGameParams } from "./game";
+import { createNewGame, initialsFor, tick, validateNewGame } from "./game";
 import { nextRandom } from "./rng";
-
-const params: NewGameParams = {
-  archetype: "technical",
-  logo: { shape: "hexagon", primaryColor: "#112233", secondaryColor: "#ffffff", font: "mono", text: "ab" },
-  companyName: "  Test Semiconductor ",
-  ceoName: "Ada",
-};
+import { newGame, params } from "./testUtils";
 
 describe("calendar", () => {
   it("starts on 1 Jan 1975", () => {
@@ -42,14 +38,19 @@ describe("new game", () => {
     expect(validateNewGame(params)).toEqual({});
   });
 
-  it("creates a trimmed game at week 0 with starting cash and a founding event", () => {
-    const g = createNewGame(params, { id: "g1", seed: 7 });
+  it("creates a company with every system initialised", () => {
+    const g = newGame();
     expect(g.week).toBe(0);
     expect(g.company.name).toBe("Test Semiconductor");
     expect(g.company.logo.text).toBe("AB");
     expect(g.company.cash).toBe(STARTING_CASH);
     expect(g.ceo).toEqual({ name: "Ada", archetype: "technical" });
-    expect(g.events).toHaveLength(1);
+    expect(g.research.completed).toEqual([...STARTING_RESEARCH]);
+    expect(g.candidates).toHaveLength(6);
+    expect(g.employees).toHaveLength(0);
+    expect(new Set(g.rivalProducts.map((p) => p.rivalId))).toEqual(new Set(RIVALS.map((r) => r.id)));
+    expect(g.sharePrice).toBeGreaterThan(0);
+    expect(g.achievements).toContain("company_founded");
   });
 
   it("throws on invalid params", () => {
@@ -65,22 +66,41 @@ describe("new game", () => {
 
 describe("tick", () => {
   it("advances one week without mutating the input", () => {
-    const g = createNewGame(params, { id: "g1", seed: 7 });
+    const g = newGame();
+    const before = JSON.stringify(g);
     const next = tick(g);
     expect(next.week).toBe(1);
-    expect(g.week).toBe(0);
+    expect(JSON.stringify(g)).toBe(before);
   });
 
-  it("logs the start of a new year", () => {
-    let g = createNewGame(params, { id: "g1", seed: 7 });
+  it("is deterministic for the same seed", () => {
+    let a = newGame(99);
+    let b = newGame(99);
+    for (let i = 0; i < 120; i++) {
+      a = tick(a);
+      b = tick(b);
+    }
+    expect(JSON.stringify(a)).toBe(JSON.stringify(b));
+  });
+
+  it("closes the year: a review record, a new-year event, and a fresh ledger", () => {
+    let g = newGame();
     for (let i = 0; i < 53; i++) g = tick(g);
-    expect(g.events.at(-1)?.message).toBe("The year 1976 begins.");
-    expect(g.events).toHaveLength(2);
+    expect(g.years).toHaveLength(1);
+    expect(g.years[0].year).toBe(1975);
+    expect(g.events.some((e) => e.message === "The year 1976 begins.")).toBe(true);
+    expect(g.lastLedger).not.toBeNull();
   });
 
-  it("runs 20 years headless", () => {
-    let g = createNewGame(params, { id: "g1", seed: 7 });
-    for (let i = 0; i < 52 * 20; i++) g = tick(g);
-    expect(weekToDate(g.week).year).toBe(1994);
+  it("charges rent every week even with no staff", () => {
+    const g = tick(newGame());
+    expect(g.company.cash).toBeLessThan(STARTING_CASH);
+  });
+
+  it("an idle company is eventually replaced by the board, and the game then stops", () => {
+    let g = newGame();
+    for (let i = 0; i < 52 * 15 && !g.gameOver; i++) g = tick(g);
+    expect(g.gameOver).not.toBeNull();
+    expect(tick(g)).toBe(g);
   });
 });
